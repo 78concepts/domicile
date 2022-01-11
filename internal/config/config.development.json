@@ -1,0 +1,18 @@
+{
+  "Broker": {
+    "Host": "192.168.20.18",
+    "port": 1883,
+    "clientId": "domicile_data_logger_mqtt_client",
+    "user": "admin",
+    "pass": "maE!qdyDAr8umAUCYHBz8YMnhh4deV6G"
+  },
+  "database": {
+    "connectionString": "postgres://zigbee:kfzNNY42%23ZDYH4TdML@7%3D(YR@192.168.20.18:5432/zigbee?connect_timeout=5",
+    "devicesCollection": "devices",
+    "groupsCollection" : "groups",
+    "temperatureReportsCollection": "temperature_reports",
+    "humidityReportsCollection": "humidity_reports",
+    "pressureReportsCollection": "pressure_reports",
+    "illuminanceReportsCollection": "illuminance_reports"
+  }
+}
