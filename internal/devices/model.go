@@ -1,6 +1,9 @@
 package devices
 
-import "time"
+import (
+	uuid "github.com/jackc/pgtype/ext/gofrs-uuid"
+	"time"
+)
 
 type Device struct {
 	IeeeAddress string `json:"ieeeAddr"`
@@ -22,6 +25,7 @@ type Device struct {
 
 type Area struct {
 	Id uint64 `json:"id"`
+	Uuid uuid.UUID `json:"uuid"`
 	DateCreated time.Time `json:"dateCreated"`
 	Name string `json:"id"`
 }

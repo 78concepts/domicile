@@ -30,7 +30,7 @@ func HandleDevices(mqttClient broker.MqttClient, devicesService *Service) {
 
 var devicesHandler = func(ctx context.Context, devicesService *Service, client mqtt.Client, msg mqtt.Message) {
 
-	//log.Printf("Received devices message: %s from topic: %s\n", msg.Payload(), msg.Topic())
+	log.Printf("Received devices message: %s from topic: %s\n", msg.Payload(), msg.Topic())
 
 	var objects []map[string]interface{}
 

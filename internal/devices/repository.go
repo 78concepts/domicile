@@ -2,6 +2,7 @@ package devices
 
 import (
 	"context"
+	"github.com/gofrs/uuid"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"log"
@@ -17,6 +18,10 @@ type IRepository interface {
 	CreateHumidityReport(ctx context.Context, deviceId string, areaId uint64, date time.Time, value float64) (*HumidityReport, error)
 	CreatePressureReport(ctx context.Context, deviceId string, areaId uint64, date time.Time, value float64) (*PressureReport, error)
 	CreateIlluminanceReport(ctx context.Context, deviceId string, areaId uint64, date time.Time, value float64, valueLux float64) (*IlluminanceReport, error)
+	GetAreas(ctx context.Context) ([]Area, error)
+	GetArea(ctx context.Context, uuid uuid.UUID) (*Area, error)
+	GetTemperatureReports(ctx context.Context, areaId uint64) ([]TemperatureReport, error)
+	GetHumidityReports(ctx context.Context, areaId uint64) ([]HumidityReport, error)
 }
 
 type PostgresRepository struct {
@@ -198,4 +203,112 @@ func (r *PostgresRepository) CreateIlluminanceReport(ctx context.Context, device
 	}
 
 	return &object, nil
+}
+
+
+func (r *PostgresRepository) GetAreas(ctx context.Context) (result []Area, err error) {
+
+	rows, err := r.Postgres.Query(ctx, "SELECT ID, UUID, DATE_CREATED, NAME FROM AREAS")
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	var objects []Area
+
+	for rows.Next() {
+		var row Area
+		err = rows.Scan(&row.Id, &row.Uuid, &row.DateCreated, &row.Name)
+		if err != nil {
+			log.Fatal("GetAreas: ", err)
+			return nil, err
+		}
+
+		objects = append(objects, row)
+	}
+	if err := rows.Err(); err != nil {
+		log.Fatal("GetAreas: ", err)
+		return nil, err
+	}
+
+	return objects, nil
+}
+
+func (r *PostgresRepository) GetArea(ctx context.Context, uuid uuid.UUID) (result *Area, err error) {
+
+	row := r.Postgres.QueryRow(ctx, "SELECT ID, UUID, DATE_CREATED, NAME FROM AREAS WHERE UUID = $1", uuid)
+
+	var object Area
+
+	err = row.Scan(&object.Id, &object.Uuid, &object.DateCreated, &object.Name)
+
+	if err != nil {
+		log.Fatal("GetArea: ", err)
+		return nil, err
+	}
+
+	return &object, nil
+}
+
+func (r *PostgresRepository) GetTemperatureReports(ctx context.Context, areaId uint64) ([]TemperatureReport, error) {
+
+	rows, err := r.Postgres.Query(ctx, "SELECT DEVICE_ID, AREA_ID, DATE, VALUE FROM TEMPERATURE_REPORTS WHERE AREA_ID=$1 ORDER BY DATE ASC", areaId)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	var objects []TemperatureReport
+
+	for rows.Next() {
+		var row TemperatureReport
+		err = rows.Scan(&row.DeviceId, &row.AreaId, &row.Date, &row.Value)
+		if err != nil {
+			log.Fatal("GetTemperatureReports: ", err)
+			return nil, err
+		}
+
+		objects = append(objects, row)
+	}
+	if err := rows.Err(); err != nil {
+		log.Fatal("GetTemperatureReports: ", err)
+		return nil, err
+	}
+
+	return objects, nil
+}
+
+
+func (r *PostgresRepository) GetHumidityReports(ctx context.Context, areaId uint64) ([]HumidityReport, error) {
+
+	rows, err := r.Postgres.Query(ctx, "SELECT DEVICE_ID, AREA_ID, DATE, VALUE FROM HUMIDITY_REPORTS WHERE AREA_ID=$1 ORDER BY DATE ASC", areaId)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	var objects []HumidityReport
+
+	for rows.Next() {
+		var row HumidityReport
+		err = rows.Scan(&row.DeviceId, &row.AreaId, &row.Date, &row.Value)
+		if err != nil {
+			log.Fatal("GetHumidityReports: ", err)
+			return nil, err
+		}
+
+		objects = append(objects, row)
+	}
+	if err := rows.Err(); err != nil {
+		log.Fatal("GetHumidityReports: ", err)
+		return nil, err
+	}
+
+	return objects, nil
 }

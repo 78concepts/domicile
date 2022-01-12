@@ -3,6 +3,8 @@ package devices
 import (
 	"context"
 	"errors"
+	"github.com/gofrs/uuid"
+	"log"
 	"time"
 )
 
@@ -47,6 +49,8 @@ func (s *Service) CreateDevice(ctx context.Context, object map[string]interface{
 		x := object["vendor"].(string)
 		vendor = &x
 	}
+
+	log.Println(object)
 
 	return s.devicesRepository.CreateDevice(
 		ctx,
@@ -145,4 +149,20 @@ func (s *Service) CreateIlluminanceReport(ctx context.Context, deviceId string, 
 		value,
 		valueLux,
 	)
+}
+
+func (s *Service) GetAreas(ctx context.Context) (areas []Area, err error) {
+	return s.devicesRepository.GetAreas(ctx)
+}
+
+func (s *Service) GetArea(ctx context.Context, uuid uuid.UUID) (areas *Area, err error) {
+	return s.devicesRepository.GetArea(ctx, uuid)
+}
+
+func (s *Service) GetTemperatureReports(ctx context.Context, areaId uint64) (reports []TemperatureReport, err error) {
+	return s.devicesRepository.GetTemperatureReports(ctx, areaId)
+}
+
+func (s *Service) GetHumidityReports(ctx context.Context, areaId uint64) (reports []HumidityReport, err error) {
+	return s.devicesRepository.GetHumidityReports(ctx, areaId)
 }
