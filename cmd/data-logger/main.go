@@ -12,7 +12,7 @@ func main() {
 	// Connect to the MQTT broker
 	ctx, ctxCancel:= context.WithCancel(context.Background())
 
-	var client = broker.NewMqttClient(ctx, ctxCancel)
+	var client = broker.NewMqttClient(ctx, ctxCancel, "api")
 
 	// Connect to the database
 	dbPool:= database.NewPGXPool()

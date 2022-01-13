@@ -279,7 +279,7 @@ func main() {
 
 	ctx, ctxCancel := context.WithCancel(context.Background())
 
-	var client = broker.NewMqttClient(ctx, ctxCancel)
+	var client = broker.NewMqttClient(ctx, ctxCancel, "logger")
 
 	devicesService:= devices.NewService(&devices.PostgresRepository{Postgres: dbPool})
 

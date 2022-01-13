@@ -31,14 +31,14 @@ var messagePublishHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqt
 	log.Printf("Received message: %s from topic: %s\n", msg.Payload(), msg.Topic())
 }
 
-func NewMqttClient(ctx context.Context, ctxCancel context.CancelFunc) MqttClient {
+func NewMqttClient(ctx context.Context, ctxCancel context.CancelFunc, source string) MqttClient {
 
 	configuration := config.GetConfig()
 
 	// Create message broker client
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(fmt.Sprintf("tcp://%s:%d", configuration.Broker.Host, configuration.Broker.Port))
-	opts.SetClientID(configuration.Broker.ClientId)
+	opts.SetClientID(configuration.Broker.ClientId + source)
 	opts.SetUsername(configuration.Broker.User)
 	opts.SetPassword(configuration.Broker.Pass)
 	opts.SetDefaultPublishHandler(messagePublishHandler)
