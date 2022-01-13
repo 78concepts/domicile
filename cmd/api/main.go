@@ -3,7 +3,9 @@ package main
 import (
 	"78concepts.com/domicile/internal/broker"
 	"78concepts.com/domicile/internal/database"
-	"78concepts.com/domicile/internal/devices"
+	"78concepts.com/domicile/internal/model"
+	"78concepts.com/domicile/internal/repository"
+	"78concepts.com/domicile/internal/service"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -16,14 +18,17 @@ import (
 	"time"
 )
 
-func NewServer(ctx context.Context, client broker.MqttClient, devicesService *devices.Service) *Server {
-	return &Server{ctx: ctx, client: client, devicesService: devicesService}
+func NewServer(ctx context.Context, client *broker.MqttClient, devicesService *service.DevicesService, reportsService *service.ReportsService, groupsService *service.GroupsService, areasService *service.AreasService) *Server {
+	return &Server{ctx: ctx, client: client, devicesService: devicesService, reportsService: reportsService, groupsService: groupsService, areasService: areasService}
 }
 
 type Server struct {
 	ctx context.Context
-	client broker.MqttClient
-	devicesService *devices.Service
+	client *broker.MqttClient
+	devicesService *service.DevicesService
+	reportsService *service.ReportsService
+	groupsService *service.GroupsService
+	areasService *service.AreasService
 }
 
 func (s *Server) Index(w http.ResponseWriter, r *http.Request){
@@ -47,7 +52,7 @@ func (s *Server) Index(w http.ResponseWriter, r *http.Request){
 			`
 	fmt.Fprintf(w, html)
 
-	areas, err := s.devicesService.GetAreas(s.ctx)
+	areas, err := s.areasService.GetAreas(s.ctx)
 
 	if err != nil {
 		log.Println("Unable to list areas", err)
@@ -63,7 +68,7 @@ func (s *Server) Index(w http.ResponseWriter, r *http.Request){
 	}
 
 	//fmt.Fprintf(w, "<br /><br />")
-	groups, err := s.devicesService.GetGroups(s.ctx)
+	groups, err := s.groupsService.GetGroups(s.ctx)
 
 	fmt.Fprintf(w, "<strong>Groups</strong><br /><br />")
 
@@ -83,7 +88,7 @@ func (s *Server) ListAllReports(w http.ResponseWriter, r *http.Request) {
 	//}
 
 	uuid, _ := uuid.FromString(r.URL.Query().Get("area"))
-	area, err := s.devicesService.GetArea(s.ctx, uuid)
+	area, err := s.areasService.GetArea(s.ctx, uuid)
 
 	if area == nil || err != nil {
 		//middleware.NotFound(w, "group", r.URL.Query().Get("group"))
@@ -94,11 +99,11 @@ func (s *Server) ListAllReports(w http.ResponseWriter, r *http.Request) {
 
 	switch reportType := r.URL.Query().Get("type"); reportType {
 		case "temperature":
-			data, _ := s.devicesService.GetTemperatureReports(s.ctx, area.Id)
+			data, _ := s.reportsService.GetTemperatureReports(s.ctx, area.Id)
 			json, _ := json.Marshal(data)
 			response = string(json)
 		case "humidity":
-			data, _ := s.devicesService.GetHumidityReports(s.ctx, area.Id)
+			data, _ := s.reportsService.GetHumidityReports(s.ctx, area.Id)
 			json, _ := json.Marshal(data)
 			response = string(json)
 	}
@@ -115,7 +120,7 @@ func (s *Server) ListAllGroups(w http.ResponseWriter, r *http.Request) {
 	//	return
 	//}
 
-	groups, err := s.devicesService.GetGroups(s.ctx)
+	groups, err := s.groupsService.GetGroups(s.ctx)
 
 	if err != nil {
 		//middleware.NotFound(w, "group", r.URL.Query().Get("group"))
@@ -140,16 +145,16 @@ func (s *Server) GraphReports(w http.ResponseWriter, r *http.Request) {
 	//}
 
 	uuid, _ := uuid.FromString(r.URL.Query().Get("area"))
-	area, err := s.devicesService.GetArea(s.ctx, uuid)
+	area, err := s.areasService.GetArea(s.ctx, uuid)
 
 	if area == nil || err != nil {
 		//middleware.NotFound(w, "group", r.URL.Query().Get("group"))
 		return
 	}
 
-	data, _ := s.devicesService.GetTemperatureReports(s.ctx, area.Id)
+	data, _ := s.reportsService.GetTemperatureReports(s.ctx, area.Id)
 
-	var cleanedData []devices.TemperatureReport
+	var cleanedData []model.TemperatureReport
 	var previousDate time.Time
 	for _, report := range data {
 		if report.Date.Sub(previousDate).Seconds() >= 60 {
@@ -225,14 +230,14 @@ func (s *Server) TurnGroupOn(w http.ResponseWriter, r *http.Request) {
 	//}
 
 	id, _ := strconv.ParseUint(r.URL.Query().Get("group"), 10, 64)
-	group, err := s.devicesService.GetGroup(s.ctx, id)
+	group, err := s.groupsService.GetGroup(s.ctx, id)
 
 	if group == nil || err != nil {
 		//middleware.NotFound(w, "group", r.URL.Query().Get("group"))
 		return
 	}
 
-	devices.TurnGroupOn(s.client, group)
+	s.groupsService.TurnGroupOn(s.client, group)
 
 	http.Redirect(w, r, "/", 302)
 }
@@ -246,14 +251,14 @@ func (s *Server) TurnGroupOff(w http.ResponseWriter, r *http.Request) {
 	//}
 
 	id, _ := strconv.ParseUint(r.URL.Query().Get("group"), 10, 64)
-	group, err := s.devicesService.GetGroup(s.ctx, id)
+	group, err := s.groupsService.GetGroup(s.ctx, id)
 
 	if group == nil || err != nil {
 		//middleware.NotFound(w, "group", r.URL.Query().Get("group"))
 		return
 	}
 
-	devices.TurnGroupOff(s.client, group)
+	s.groupsService.TurnGroupOff(s.client, group)
 
 	http.Redirect(w, r, "/", 302)
 }
@@ -281,9 +286,12 @@ func main() {
 
 	var client = broker.NewMqttClient(ctx, ctxCancel, "logger")
 
-	devicesService:= devices.NewService(&devices.PostgresRepository{Postgres: dbPool})
+	reportsService:= service.NewReportsService(&repository.PostgresReportsRepository{Postgres: dbPool})
+	devicesService:= service.NewDevicesService(reportsService, &repository.PostgresDevicesRepository{Postgres: dbPool})
+	groupsService:= service.NewGroupsService(&repository.PostgresGroupsRepository{Postgres: dbPool})
+	areasService:= service.NewAreasService(&repository.PostgresAreasRepository{Postgres: dbPool})
 
-	server:= NewServer(ctx, client, devicesService)
+	server:= NewServer(ctx, client, devicesService, reportsService, groupsService, areasService)
 
 	handleRequests(server)
 }

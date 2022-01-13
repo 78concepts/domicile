@@ -31,7 +31,7 @@ var messagePublishHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqt
 	log.Printf("Received message: %s from topic: %s\n", msg.Payload(), msg.Topic())
 }
 
-func NewMqttClient(ctx context.Context, ctxCancel context.CancelFunc, source string) MqttClient {
+func NewMqttClient(ctx context.Context, ctxCancel context.CancelFunc, source string) *MqttClient {
 
 	configuration := config.GetConfig()
 
@@ -57,5 +57,5 @@ func NewMqttClient(ctx context.Context, ctxCancel context.CancelFunc, source str
 		Conn: conn,
 	}
 
-	return client
+	return &client
 }
