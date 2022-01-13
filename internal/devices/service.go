@@ -26,28 +26,34 @@ func (s *Service) CreateDevice(ctx context.Context, object map[string]interface{
 		return nil, errors.New("CreateDevice: Object is null")
 	}
 
+	var dateCode *string;
+	if object["date_code"] != nil {
+		x := object["date_code"].(string)
+		dateCode = &x
+	}
+
+	var manufacturer *string;
+	if object["manufacturer"] != nil {
+		x := object["manufacturer"].(string)
+		manufacturer = &x
+	}
+
+	var modelId *string;
+	if object["model_id"] != nil {
+		x := object["model_id"].(string)
+		modelId = &x
+	}
+
 	var lastSeen *uint64;
 	if object["last_seen"] != nil {
 		x := object["last_seen"].(uint64)
 		lastSeen = &x
 	}
 
-	var description *string;
-	if object["description"] != nil {
-		x := object["description"].(string)
-		description = &x
-	}
-
-	var model *string;
-	if object["model"] != nil {
-		x := object["model"].(string)
-		model = &x
-	}
-
-	var vendor *string;
-	if object["vendor"] != nil {
-		x := object["vendor"].(string)
-		vendor = &x
+	var deviceType *string;
+	if object["type"] != nil {
+		x := object["type"].(string)
+		deviceType = &x
 	}
 
 	log.Println(object)
@@ -55,15 +61,12 @@ func (s *Service) CreateDevice(ctx context.Context, object map[string]interface{
 	return s.devicesRepository.CreateDevice(
 		ctx,
 		object["ieee_address"].(string),
-		object["date_code"].(string),
+		dateCode,
 		object["friendly_name"].(string),
-		description,
-		object["manufacturer"].(string),
-		model,
-		object["model_id"].(string),
+		manufacturer,
+		modelId,
 		lastSeen,
-		vendor,
-		object["type"].(string),
+		deviceType,
 	)
 }
 
@@ -166,3 +169,47 @@ func (s *Service) GetTemperatureReports(ctx context.Context, areaId uint64) (rep
 func (s *Service) GetHumidityReports(ctx context.Context, areaId uint64) (reports []HumidityReport, err error) {
 	return s.devicesRepository.GetHumidityReports(ctx, areaId)
 }
+
+func (s *Service) GetGroups(ctx context.Context) (devices []Group, err error) {
+	return s.devicesRepository.GetGroups(ctx)
+}
+
+func (s *Service) CreateGroup(ctx context.Context, object map[string]interface{}) (device *Group, err error) {
+
+	if object == nil {
+		return nil, errors.New("CreateGroup: Object is null")
+	}
+
+	return s.devicesRepository.CreateGroup(
+		ctx,
+		uint64(object["id"].(float64)),
+		object["friendly_name"].(string),
+	)
+}
+
+func (s *Service) UpdateGroup(ctx context.Context, object map[string]interface{}) (group *Group, err error) {
+
+	if object == nil {
+		return nil, errors.New("UpdateGroup: Object is null")
+	}
+
+	return s.devicesRepository.UpdateGroup(
+		ctx,
+		uint64(object["id"].(float64)),
+		object["friendly_name"].(string),
+		object["active"].(bool),
+	)
+}
+
+func (s *Service) GetGroupMembers(ctx context.Context, id uint64) (members []GroupMember, err error) {
+	return s.devicesRepository.GetGroupMembers(ctx, id)
+}
+
+func (s *Service) CreateGroupMember(ctx context.Context, id uint64, ieeeAddress string) (groupMember *GroupMember, err error) {
+	return s.devicesRepository.CreateGroupMember(ctx, id, ieeeAddress)
+}
+
+func (s *Service) DeleteGroupMember(ctx context.Context, id uint64, ieeeAddress string) (err error) {
+	return s.devicesRepository.DeleteGroupMember(ctx, id, ieeeAddress)
+}
+

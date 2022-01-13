@@ -25,6 +25,7 @@ func main() {
 	defer dbPool.Close()
 
 	devices.HandleDevices(client, devicesService)
+	devices.HandleGroups(client, devicesService)
 
 	<- c
 }

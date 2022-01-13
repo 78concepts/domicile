@@ -45,6 +45,9 @@ func (s *Server) Index(w http.ResponseWriter, r *http.Request){
 		fmt.Fprintf(w, "<br /><br />")
 	}
 
+	fmt.Fprintf(w, "<br /><br />")
+	fmt.Fprintf(w, "<a href=\"groups/\">Groups</a>")
+
 	fmt.Fprintf(w, "</body></html>")
 }
 
@@ -76,6 +79,30 @@ func (s *Server) ListAllReports(w http.ResponseWriter, r *http.Request) {
 			json, _ := json.Marshal(data)
 			response = string(json)
 	}
+
+	fmt.Fprintf(w, string(response))
+
+}
+
+func (s *Server) ListAllGroups(w http.ResponseWriter, r *http.Request) {
+
+	log.Println("Endpoint hit: /groups")
+
+	//if !middleware.ValidateRequiredQueryParam(w, r, "group") || !middleware.ValidateValidSetQueryParam(w, r, "type", []string{devices.TemperatureReport, devices.HumidityReport, devices.PressureReport, devices.IlluminanceReport}) {
+	//	return
+	//}
+
+	groups, err := s.devicesService.GetGroups(s.ctx)
+
+	if err != nil {
+		//middleware.NotFound(w, "group", r.URL.Query().Get("group"))
+		return
+	}
+
+	var response string
+
+	json, _ := json.Marshal(groups)
+	response = string(json)
 
 	fmt.Fprintf(w, string(response))
 
@@ -174,6 +201,7 @@ func handleRequests(server *Server) {
 	router.HandleFunc("/", server.Index)
 	router.HandleFunc("/reports", server.ListAllReports)
 	router.HandleFunc("/graphs", server.GraphReports)
+	router.HandleFunc("/groups", server.ListAllGroups)
 
 	log.Fatal(http.ListenAndServe(":8080", router))
 }

@@ -8,7 +8,7 @@ import (
 type Device struct {
 	IeeeAddress string `json:"ieeeAddr"`
 	DateCreated time.Time `json:"dateCreated"`
-	DateModified time.Time `json:"dateCreated"`
+	DateModified time.Time `json:"dateModified"`
 	DateCode string `json:"dateCode"`
 	FriendlyName string `json:"friendlyName"`
 	AreaId *uint64 `json:"areaId"`
@@ -50,10 +50,24 @@ type PressureReport struct {
 	Date time.Time `json:"date"`
 	Value float64 `json:"value"`
 }
+
 type IlluminanceReport struct {
 	DeviceId string `json:"ieeeAddr"`
 	AreaId uint64 `json:"areaId"`
 	Date time.Time `json:"date"`
 	Value float64 `json:"value"`
 	ValueLux float64 `json:"value"`
+}
+
+type Group struct {
+	Id uint64 `json:"id"`
+	DateCreated time.Time `json:"dateCreated"`
+	DateModified time.Time `json:"dateModified"`
+	FriendlyName string `json:"friendlyName"`
+	Active bool `json:"active""`
+}
+
+type GroupMember struct {
+	GroupId uint64 `json:"groupId"`
+	IeeeAddress string `json:"ieeeAddress"`
 }

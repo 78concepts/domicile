@@ -11,7 +11,7 @@ import (
 
 type IRepository interface {
 	GetDevices(ctx context.Context) ([]Device, error)
-	CreateDevice(ctx context.Context, ieeeAddress string, dateCode string, name string, description *string, manufacturer string, model *string, modelId string, lastSeen *uint64, vendor *string, deviceType string) (*Device, error)
+	CreateDevice(ctx context.Context, ieeeAddress string, dateCode *string, name string, manufacturer *string, modelId *string, lastSeen *uint64, deviceType *string) (*Device, error)
 	UpdateDevice(ctx context.Context, ieeeAddress string, name string, active bool) (*Device, error)
 	UpdateDeviceBattery(ctx context.Context, ieeeAddress string, battery float64) (*Device, error)
 	CreateTemperatureReport(ctx context.Context, deviceId string, areaId uint64, date time.Time, value float64) (*TemperatureReport, error)
@@ -22,20 +22,26 @@ type IRepository interface {
 	GetArea(ctx context.Context, uuid uuid.UUID) (*Area, error)
 	GetTemperatureReports(ctx context.Context, areaId uint64) ([]TemperatureReport, error)
 	GetHumidityReports(ctx context.Context, areaId uint64) ([]HumidityReport, error)
+	GetGroups(ctx context.Context) ([]Group, error)
+	CreateGroup(ctx context.Context, id uint64, name string) (*Group, error)
+	UpdateGroup(ctx context.Context, id uint64, name string, active bool) (*Group, error)
+	GetGroupMembers(ctx context.Context, id uint64) ([]GroupMember, error)
+	CreateGroupMember(ctx context.Context, id uint64, ieeeAddress string) (*GroupMember, error)
+	DeleteGroupMember(ctx context.Context, id uint64, ieeeAddress string) error
 }
 
 type PostgresRepository struct {
 	Postgres *pgxpool.Pool
 }
 
-var deviceReturnFields = "IEEE_ADDRESS, DATE_CREATED, DATE_MODIFIED, DATE_CODE, FRIENDLY_NAME, AREA_ID, DESCRIPTION, MANUFACTURER, MODEL, MODEL_ID, LAST_SEEN, VENDOR, TYPE, BATTERY, ACTIVE"
+var deviceReturnFields = "IEEE_ADDRESS, DATE_CREATED, DATE_MODIFIED, DATE_CODE, FRIENDLY_NAME, AREA_ID, MANUFACTURER, MODEL_ID, LAST_SEEN, TYPE, BATTERY, ACTIVE"
 
 var scanDeviceRows = func(rows pgx.Rows, row *Device) error {
-	return rows.Scan(&row.IeeeAddress, &row.DateCreated, &row.DateModified, &row.DateCode, &row.FriendlyName, &row.AreaId, &row.Description, &row.Manufacturer, &row.Model, &row.ModelId, &row.LastSeen, &row.Vendor, &row.Type, &row.Battery, &row.Active)
+	return rows.Scan(&row.IeeeAddress, &row.DateCreated, &row.DateModified, &row.DateCode, &row.FriendlyName, &row.AreaId, &row.Manufacturer, &row.ModelId, &row.LastSeen, &row.Type, &row.Battery, &row.Active)
 }
 
 var scanDeviceRow = func(rows pgx.Row, row *Device) error {
-	return rows.Scan(&row.IeeeAddress, &row.DateCreated, &row.DateModified, &row.DateCode, &row.FriendlyName, &row.AreaId, &row.Description, &row.Manufacturer, &row.Model, &row.ModelId, &row.LastSeen, &row.Vendor, &row.Type, &row.Battery, &row.Active)
+	return rows.Scan(&row.IeeeAddress, &row.DateCreated, &row.DateModified, &row.DateCode, &row.FriendlyName, &row.AreaId, &row.Manufacturer, &row.ModelId, &row.LastSeen, &row.Type, &row.Battery, &row.Active)
 }
 
 func (r *PostgresRepository) GetDevices(ctx context.Context) (result []Device, err error) {
@@ -68,20 +74,20 @@ func (r *PostgresRepository) GetDevices(ctx context.Context) (result []Device, e
 	return objects, nil
 }
 
-func (r *PostgresRepository) CreateDevice(ctx context.Context, ieeeAddress string, dateCode string, name string, description *string, manufacturer string, model *string, modelId string, lastSeen *uint64, vendor *string, deviceType string) (result *Device, err error) {
+func (r *PostgresRepository) CreateDevice(ctx context.Context, ieeeAddress string, dateCode *string, name string, manufacturer *string, modelId *string, lastSeen *uint64, deviceType *string) (result *Device, err error) {
 
 	dateCreated := time.Now().UTC()
 
 	query := `
 				INSERT INTO DEVICES 
 					(IEEE_ADDRESS, DATE_CREATED, DATE_MODIFIED, DATE_CODE, FRIENDLY_NAME, 
-					 DESCRIPTION, MANUFACTURER, MODEL, MODEL_ID, LAST_SEEN, VENDOR, TYPE, ACTIVE) 
+					 MANUFACTURER, MODEL_ID, LAST_SEEN, TYPE, ACTIVE) 
 				VALUES
-					($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) 
+					($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
 				RETURNING ` + deviceReturnFields
 
 	row := r.Postgres.QueryRow(ctx, query, ieeeAddress, dateCreated, dateCreated, dateCode, name,
-		description, manufacturer, model, modelId, lastSeen, vendor, deviceType, true)
+		manufacturer, modelId, lastSeen, deviceType, true)
 
 	var object Device
 
@@ -312,3 +318,146 @@ func (r *PostgresRepository) GetHumidityReports(ctx context.Context, areaId uint
 
 	return objects, nil
 }
+
+
+func (r *PostgresRepository) GetGroups(ctx context.Context) (result []Group, err error) {
+
+	rows, err := r.Postgres.Query(ctx, "SELECT * FROM GROUPS")
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	var objects []Group
+
+	for rows.Next() {
+		var row Group
+		err = rows.Scan(&row.Id, &row.DateCreated, &row.DateModified, &row.FriendlyName, &row.Active)
+		if err != nil {
+			log.Fatal("GetGroups: ", err)
+			return nil, err
+		}
+
+		objects = append(objects, row)
+	}
+	if err := rows.Err(); err != nil {
+		log.Fatal("GetGroups: ", err)
+		return nil, err
+	}
+
+	return objects, nil
+}
+
+
+func (r *PostgresRepository) CreateGroup(ctx context.Context, id uint64, name string) (result *Group, err error) {
+
+	dateCreated := time.Now().UTC()
+
+	query := `
+				INSERT INTO GROUPS 
+					(ID, DATE_CREATED, DATE_MODIFIED, FRIENDLY_NAME, ACTIVE) 
+				VALUES
+					($1, $2, $3, $4, $5) 
+				RETURNING ID, DATE_CREATED, DATE_MODIFIED, FRIENDLY_NAME, ACTIVE`
+
+	row := r.Postgres.QueryRow(ctx, query, id, dateCreated, dateCreated, name, true)
+
+	var object Group
+
+	err = row.Scan(&object.Id, &object.DateCreated, &object.DateModified, &object.FriendlyName, &object.Active)
+
+	if err != nil {
+		log.Fatal("CreateGroup ", err)
+		return nil, err
+	}
+
+	return &object, nil
+}
+
+func (r *PostgresRepository) UpdateGroup(ctx context.Context, id uint64, name string, active bool) (result *Group, err error) {
+
+	query := "UPDATE GROUPS SET FRIENDLY_NAME = $1, ACTIVE = $2 WHERE ID = $3 RETURNING ID, DATE_CREATED, DATE_MODIFIED, FRIENDLY_NAME, ACTIVE"
+
+	row := r.Postgres.QueryRow(ctx, query, name, active, id)
+
+	var object Group
+
+	err = row.Scan(&object.Id, &object.DateCreated, &object.DateModified, &object.FriendlyName, &object.Active)
+
+	if err != nil {
+		log.Fatal("UpdateGroup", err)
+		return nil, err
+	}
+
+	return &object, nil
+}
+
+func (r *PostgresRepository) GetGroupMembers(ctx context.Context, id uint64) (result []GroupMember, err error) {
+
+	rows, err := r.Postgres.Query(ctx, "SELECT GROUP_ID, IEEE_ADDRESS FROM GROUPS_DEVICES WHERE GROUP_ID = $1", id)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	var objects []GroupMember
+
+	for rows.Next() {
+		var row GroupMember
+		err = rows.Scan(&row.GroupId, &row.IeeeAddress)
+		if err != nil {
+			log.Fatal("GetGroupMembers: ", err)
+			return nil, err
+		}
+
+		objects = append(objects, row)
+	}
+	if err := rows.Err(); err != nil {
+		log.Fatal("GetGroupMembers: ", err)
+		return nil, err
+	}
+
+	return objects, nil
+}
+
+func (r *PostgresRepository) CreateGroupMember(ctx context.Context, id uint64, ieeeAddress string) (groupMember *GroupMember, err error) {
+
+	query := `
+				INSERT INTO GROUPS_DEVICES 
+					(GROUP_ID, IEEE_ADDRESS)
+				VALUES
+					($1, $2) 
+				RETURNING GROUP_ID, IEEE_ADDRESS`
+
+	row := r.Postgres.QueryRow(ctx, query, id, ieeeAddress)
+
+	var object GroupMember
+
+	err = row.Scan(&object.GroupId, &object.IeeeAddress)
+
+	if err != nil {
+		log.Fatal("CreateGroupMember ", err)
+		return nil, err
+	}
+
+	return &object, nil
+}
+
+func (r *PostgresRepository) DeleteGroupMember(ctx context.Context, id uint64, ieeeAddress string) (err error) {
+
+	query := "DELETE FROM GROUPS_DEVICES WHERE GROUP_ID = $1 AND IEEE_ADDRESS = $2"
+
+	_, err = r.Postgres.Exec(ctx, query, id, ieeeAddress)
+
+	if err != nil {
+		log.Fatal("DeleteGroupMember ", err)
+		return err
+	}
+
+	return nil
+}
+

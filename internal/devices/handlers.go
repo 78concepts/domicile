@@ -11,6 +11,7 @@ import (
 const (
 	TopicGetDevices = broker.TopicRoot + "/bridge/config/devices/get"
 	TopicDevices = broker.TopicRoot + "/bridge/devices"
+	TopicGroups = broker.TopicRoot + "/bridge/groups"
 )
 
 func HandleDevices(mqttClient broker.MqttClient, devicesService *Service) {
@@ -26,6 +27,17 @@ func HandleDevices(mqttClient broker.MqttClient, devicesService *Service) {
 		log.Fatal("HandleDevices: Subscribe error: %s", token.Error())
 		return
 	}
+}
+
+func HandleGroups(mqttClient broker.MqttClient, devicesService *Service) {
+
+	if token := mqttClient.Conn.Subscribe(TopicGroups, 0, func(client mqtt.Client, msg mqtt.Message) {
+		groupsHandler(mqttClient.Ctx, devicesService, client, msg);
+	}); token.Wait() && token.Error() != nil {
+		log.Fatal("HandleGroups: Subscribe error: %s", token.Error())
+		return
+	}
+
 }
 
 var devicesHandler = func(ctx context.Context, devicesService *Service, client mqtt.Client, msg mqtt.Message) {
@@ -152,36 +164,115 @@ var deviceHandler = func(ctx context.Context, devicesService *Service, device *D
 	}
 }
 
-//	// Need to get all of the devices from the DB
-//	// IF the device is not there, then update the DB and set to active
-//	// Update the friendly name base on the ieee in the list
+var groupsHandler = func(ctx context.Context, devicesService *Service, client mqtt.Client, msg mqtt.Message) {
 
-//	//channel := make(chan int)
-//	//go subscribeToGroups(channel, client)
-//}
-//
-//func subscribeToSensorTopics(client mqtt.Client, devices []Device) {
-//
-//	for _, device := range devices {
-//		if device.Type == "EndDevice" {
-//			switch device.ModelId {
-//				case "lumi.weather":
-//					channel := make(chan int)
-//					go subscribeToSensorTopic(channel, client, device)
-//					break
-//				default:
-//					break
-//			}
-//		}
-//	}
-//}
-//
-//func subscribeToSensorTopic(c chan <- int, client mqtt.Client, device Device) {
-//
-//	defer close(c)
-//
-//	if token := client.Subscribe(TopicRoot + "/" + device.FriendlyName, 0, sensorSubscribeHandler); token.Wait() && token.Error() != nil {
-//		panic(token.Error())
-//	}
-//}
+	log.Printf("Received groups message: %s from topic: %s\n", msg.Payload(), msg.Topic())
 
+	var objects []map[string]interface{}
+
+	err := json.Unmarshal(msg.Payload(), &objects)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	groups, err:= devicesService.GetGroups(ctx)
+
+	for _, object := range objects {
+
+		var found *Group
+
+		for i := range groups {
+			if groups[i].Id == uint64(object["id"].(float64)) {
+				found = &groups[i]
+				break
+			}
+		}
+
+		if found != nil {
+
+			object["active"] = true
+
+			if !found.Active {
+				object["active"] = true
+				devicesService.UpdateGroup(ctx, object)
+			}
+
+			if found.FriendlyName != object["friendly_name"] {
+				devicesService.UpdateGroup(ctx, object)
+			}
+
+		} else {
+			found, _ = devicesService.CreateGroup(ctx, object)
+		}
+
+		handleGroupMembers(ctx, devicesService, found, object["members"].([]interface{}))
+	}
+
+	// If a group in the database is no longer being reported, mark it as inactive
+	for _, group := range groups {
+
+		var found *map[string]interface {}
+
+		for i := range objects {
+			if uint64(objects[i]["id"].(float64)) == group.Id && group.Active {
+				found = &objects[i]
+				break
+			}
+		}
+
+		if found == nil {
+
+			object := map[string]interface{} {
+				"id":  group.Id,
+				"friendly_name":  group.FriendlyName,
+				"active":  false,
+			}
+
+			devicesService.UpdateGroup(ctx, object)
+		}
+	}
+}
+
+var handleGroupMembers = func(ctx context.Context, devicesService *Service, group *Group, objects []interface{}) {
+
+	if group == nil {
+		return
+	}
+
+	groupMembers, _ := devicesService.GetGroupMembers(ctx, group.Id)
+	for _, object := range objects {
+
+		var found *GroupMember
+
+		for i := range groupMembers {
+			if groupMembers[i].IeeeAddress == object.(map[string]interface{})["ieee_address"].(string) {
+				found = &groupMembers[i]
+				break
+			}
+		}
+
+		if found == nil {
+			found, _ = devicesService.CreateGroupMember(ctx, group.Id, object.(map[string]interface{})["ieee_address"].(string))
+		}
+	}
+
+
+	// If a group member in the database is no longer being reported, delete it
+	for _, groupMember := range groupMembers {
+
+		var found *map[string]interface {}
+
+		for i := range objects {
+			if objects[i].(map[string]interface{})["ieee_address"].(string) == groupMember.IeeeAddress {
+				foundMember := objects[i].(map[string]interface{})
+				found = &foundMember
+				break
+			}
+		}
+
+		if found == nil {
+			devicesService.DeleteGroupMember(ctx, groupMember.GroupId, groupMember.IeeeAddress)
+		}
+	}
+}
