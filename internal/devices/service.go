@@ -170,8 +170,12 @@ func (s *Service) GetHumidityReports(ctx context.Context, areaId uint64) (report
 	return s.devicesRepository.GetHumidityReports(ctx, areaId)
 }
 
-func (s *Service) GetGroups(ctx context.Context) (devices []Group, err error) {
+func (s *Service) GetGroups(ctx context.Context) (groups []Group, err error) {
 	return s.devicesRepository.GetGroups(ctx)
+}
+
+func (s *Service) GetGroup(ctx context.Context, id uint64) (group *Group, err error) {
+	return s.devicesRepository.GetGroup(ctx, id)
 }
 
 func (s *Service) CreateGroup(ctx context.Context, object map[string]interface{}) (device *Group, err error) {

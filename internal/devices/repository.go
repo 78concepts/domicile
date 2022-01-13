@@ -23,6 +23,7 @@ type IRepository interface {
 	GetTemperatureReports(ctx context.Context, areaId uint64) ([]TemperatureReport, error)
 	GetHumidityReports(ctx context.Context, areaId uint64) ([]HumidityReport, error)
 	GetGroups(ctx context.Context) ([]Group, error)
+	GetGroup(ctx context.Context, id uint64) (*Group, error)
 	CreateGroup(ctx context.Context, id uint64, name string) (*Group, error)
 	UpdateGroup(ctx context.Context, id uint64, name string, active bool) (*Group, error)
 	GetGroupMembers(ctx context.Context, id uint64) ([]GroupMember, error)
@@ -350,6 +351,20 @@ func (r *PostgresRepository) GetGroups(ctx context.Context) (result []Group, err
 	return objects, nil
 }
 
+func (r *PostgresRepository) GetGroup(ctx context.Context, id uint64) (result *Group, err error) {
+
+	row := r.Postgres.QueryRow(ctx, "SELECT * FROM GROUPS WHERE ID = $1", id)
+
+	var object Group
+
+	err = row.Scan(&object.Id, &object.DateCreated, &object.DateModified, &object.FriendlyName, &object.Active)
+	if err != nil {
+		log.Fatal("GetGroup: ", err)
+		return nil, err
+	}
+
+	return &object, nil
+}
 
 func (r *PostgresRepository) CreateGroup(ctx context.Context, id uint64, name string) (result *Group, err error) {
 

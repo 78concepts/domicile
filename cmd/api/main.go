@@ -1,6 +1,7 @@
 package main
 
 import (
+	"78concepts.com/domicile/internal/broker"
 	"78concepts.com/domicile/internal/database"
 	"78concepts.com/domicile/internal/devices"
 	"context"
@@ -10,16 +11,18 @@ import (
 	"github.com/gorilla/mux"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 )
 
-func NewServer(ctx context.Context, devicesService *devices.Service) *Server {
-	return &Server{ctx: ctx, devicesService: devicesService}
+func NewServer(ctx context.Context, client broker.MqttClient, devicesService *devices.Service) *Server {
+	return &Server{ctx: ctx, client: client, devicesService: devicesService}
 }
 
 type Server struct {
 	ctx context.Context
+	client broker.MqttClient
 	devicesService *devices.Service
 }
 
@@ -27,8 +30,22 @@ func (s *Server) Index(w http.ResponseWriter, r *http.Request){
 
 	log.Println("Endpoint hit: /")
 
-	fmt.Fprintf(w, "<html><head></head><body>")
-	fmt.Fprintf(w, "<h1>Welcome to the machine</h1>")
+	html :=
+		`<html>
+			<head>
+				<script>
+					function on(groupId){
+						window.location.replace('/groupOn?group=' + groupId);
+					}
+					function off(groupId){
+						window.location.replace('/groupOff?group=' + groupId);
+					}
+				</script>
+			</head>
+			<body>
+				<h1>Welcome to the machine</h1>
+			`
+	fmt.Fprintf(w, html)
 
 	areas, err := s.devicesService.GetAreas(s.ctx)
 
@@ -45,8 +62,14 @@ func (s *Server) Index(w http.ResponseWriter, r *http.Request){
 		fmt.Fprintf(w, "<br /><br />")
 	}
 
-	fmt.Fprintf(w, "<br /><br />")
-	fmt.Fprintf(w, "<a href=\"groups/\">Groups</a>")
+	//fmt.Fprintf(w, "<br /><br />")
+	groups, err := s.devicesService.GetGroups(s.ctx)
+
+	fmt.Fprintf(w, "<strong>Groups</strong><br /><br />")
+
+	for _, group := range groups {
+		fmt.Fprintf(w, "%s -- <button onClick=\"on(%d)\">Toggle on</button>  -- <button onClick=\"off(%d)\">Toggle off</button><br />", group.FriendlyName, group.Id, group.Id)
+	}
 
 	fmt.Fprintf(w, "</body></html>")
 }
@@ -191,7 +214,48 @@ func (s *Server) GraphReports(w http.ResponseWriter, r *http.Request) {
 		</html>`
 
 	fmt.Fprintf(w, script);
+}
 
+func (s *Server) TurnGroupOn(w http.ResponseWriter, r *http.Request) {
+
+	log.Println("Endpoint hit: /groupOn?group=" + r.URL.Query().Get("group"))
+
+	//if !middleware.ValidateRequiredQueryParam(w, r, "group") || !middleware.ValidateValidSetQueryParam(w, r, "type", []string{devices.TemperatureReport, devices.HumidityReport, devices.PressureReport, devices.IlluminanceReport}) {
+	//	return
+	//}
+
+	id, _ := strconv.ParseUint(r.URL.Query().Get("group"), 10, 64)
+	group, err := s.devicesService.GetGroup(s.ctx, id)
+
+	if group == nil || err != nil {
+		//middleware.NotFound(w, "group", r.URL.Query().Get("group"))
+		return
+	}
+
+	devices.TurnGroupOn(s.client, group)
+
+	http.Redirect(w, r, "/", 302)
+}
+
+func (s *Server) TurnGroupOff(w http.ResponseWriter, r *http.Request) {
+
+	log.Println("Endpoint hit: /groupOff?group=" + r.URL.Query().Get("group"))
+
+	//if !middleware.ValidateRequiredQueryParam(w, r, "group") || !middleware.ValidateValidSetQueryParam(w, r, "type", []string{devices.TemperatureReport, devices.HumidityReport, devices.PressureReport, devices.IlluminanceReport}) {
+	//	return
+	//}
+
+	id, _ := strconv.ParseUint(r.URL.Query().Get("group"), 10, 64)
+	group, err := s.devicesService.GetGroup(s.ctx, id)
+
+	if group == nil || err != nil {
+		//middleware.NotFound(w, "group", r.URL.Query().Get("group"))
+		return
+	}
+
+	devices.TurnGroupOff(s.client, group)
+
+	http.Redirect(w, r, "/", 302)
 }
 
 
@@ -202,6 +266,8 @@ func handleRequests(server *Server) {
 	router.HandleFunc("/reports", server.ListAllReports)
 	router.HandleFunc("/graphs", server.GraphReports)
 	router.HandleFunc("/groups", server.ListAllGroups)
+	router.HandleFunc("/groupOn", server.TurnGroupOn)
+	router.HandleFunc("/groupOff", server.TurnGroupOff)
 
 	log.Fatal(http.ListenAndServe(":8080", router))
 }
@@ -211,11 +277,13 @@ func main() {
 	// Connect to the database
 	dbPool:= database.NewPGXPool()
 
-	ctx, _ := context.WithCancel(context.Background())
+	ctx, ctxCancel := context.WithCancel(context.Background())
+
+	var client = broker.NewMqttClient(ctx, ctxCancel)
 
 	devicesService:= devices.NewService(&devices.PostgresRepository{Postgres: dbPool})
 
-	server:= NewServer(ctx, devicesService)
+	server:= NewServer(ctx, client, devicesService)
 
 	handleRequests(server)
 }

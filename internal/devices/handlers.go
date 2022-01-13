@@ -146,10 +146,6 @@ var deviceHandler = func(ctx context.Context, devicesService *Service, device *D
 		return
 	}
 
-	//TODO
-	// 2022/01/11 13:26:35 map[battery:91 humidity:65.79 linkquality:255 pressure:1003.1 temperature:27.21 voltage:2985]
-	// Groups
-
 	if report["temperature"] != nil && device.ModelId == "lumi.weather" { // Celcius
 		devicesService.CreateTemperatureReport(ctx, device.IeeeAddress, *device.AreaId, report["temperature"].(float64))
 	}
@@ -257,7 +253,6 @@ var handleGroupMembers = func(ctx context.Context, devicesService *Service, grou
 		}
 	}
 
-
 	// If a group member in the database is no longer being reported, delete it
 	for _, groupMember := range groupMembers {
 
@@ -274,5 +269,23 @@ var handleGroupMembers = func(ctx context.Context, devicesService *Service, grou
 		if found == nil {
 			devicesService.DeleteGroupMember(ctx, groupMember.GroupId, groupMember.IeeeAddress)
 		}
+	}
+}
+
+func TurnGroupOn(mqttClient broker.MqttClient, group *Group) {
+	payload := "{\"state\": \"on\"}"
+
+	if token := mqttClient.Conn.Publish(broker.TopicRoot + "/" + group.FriendlyName + "/set", 0, false, payload); token.Wait() && token.Error() != nil {
+		panic(token.Error())
+	}
+}
+
+
+func TurnGroupOff(mqttClient broker.MqttClient, group *Group) {
+
+	payload := "{\"state\": \"off\"}"
+
+	if token := mqttClient.Conn.Publish(broker.TopicRoot + "/" + group.FriendlyName + "/set", 0, false, payload); token.Wait() && token.Error() != nil {
+		panic(token.Error())
 	}
 }
