@@ -59,6 +59,7 @@ func (r *PostgresRepository) GetDevices(ctx context.Context) (result []Device, e
 
 	for rows.Next() {
 		var row Device
+
 		err = scanDeviceRows(rows, &row)
 		if err != nil {
 			log.Fatal("GetDevices: ", err)

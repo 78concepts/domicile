@@ -146,7 +146,7 @@ var deviceHandler = func(ctx context.Context, devicesService *Service, device *D
 		return
 	}
 
-	if report["temperature"] != nil && device.ModelId == "lumi.weather" { // Celcius
+	if report["temperature"] != nil && device.ModelId != nil && *device.ModelId == "lumi.weather" { // Celcius
 		devicesService.CreateTemperatureReport(ctx, device.IeeeAddress, *device.AreaId, report["temperature"].(float64))
 	}
 	if report["humidity"] != nil { // Percentage
