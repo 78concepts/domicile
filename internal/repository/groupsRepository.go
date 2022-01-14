@@ -112,7 +112,7 @@ func (r *PostgresGroupsRepository) UpdateGroup(ctx context.Context, id uint64, n
 
 func (r *PostgresGroupsRepository) GetGroupMembers(ctx context.Context, id uint64) ([]model.GroupMember, error) {
 
-	rows, err := r.Postgres.Query(ctx, "SELECT GROUP_ID, IEEE_ADDRESS FROM GROUPS_DEVICES WHERE GROUP_ID = $1", id)
+	rows, err := r.Postgres.Query(ctx, "SELECT GD.GROUP_ID, GD.IEEE_ADDRESS, D.FRIENDLY_NAME FROM GROUPS_DEVICES GD INNER JOIN DEVICES D ON GD.IEEE_ADDRESS = D.IEEE_ADDRESS WHERE GD.GROUP_ID = $1", id)
 
 	if err != nil {
 		return nil, err
@@ -120,11 +120,11 @@ func (r *PostgresGroupsRepository) GetGroupMembers(ctx context.Context, id uint6
 
 	defer rows.Close()
 
-	var objects []model.GroupMember
+	objects := make([]model.GroupMember, 0)
 
 	for rows.Next() {
 		var row model.GroupMember
-		err = rows.Scan(&row.GroupId, &row.IeeeAddress)
+		err = rows.Scan(&row.GroupId, &row.IeeeAddress, &row.FriendlyName)
 		if err != nil {
 			log.Fatal("GetGroupMembers:", err)
 			return nil, err

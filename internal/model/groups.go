@@ -8,10 +8,12 @@ type Group struct {
 	DateModified time.Time `json:"dateModified"`
 	FriendlyName string `json:"friendlyName"`
 	Active bool `json:"active""`
+	Members []GroupMember `json:"members"`
 }
 
 type GroupMember struct {
 	GroupId uint64 `json:"groupId"`
 	IeeeAddress string `json:"ieeeAddress"`
+	FriendlyName string `json:"friendlyName"`
 }
 

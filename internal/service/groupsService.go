@@ -163,11 +163,32 @@ func (s *GroupsService) TurnGroupOff(mqttClient *broker.MqttClient, group *model
 }
 
 func (s *GroupsService) GetGroups(ctx context.Context) ([]model.Group, error) {
-	return s.groupsRepository.GetGroups(ctx)
+	groups, err := s.groupsRepository.GetGroups(ctx)
+
+	if err == nil {
+		for i, group := range groups {
+			members, err := s.groupsRepository.GetGroupMembers(ctx, group.Id)
+			if err == nil {
+				groups[i].Members = members
+			}
+		}
+	}
+
+	return groups, err
 }
 
 func (s *GroupsService) GetGroup(ctx context.Context, id uint64) (*model.Group, error) {
-	return s.groupsRepository.GetGroup(ctx, id)
+
+	group, err := s.groupsRepository.GetGroup(ctx, id)
+
+	if err == nil {
+		members, err := s.groupsRepository.GetGroupMembers(ctx, group.Id)
+		if err == nil{
+			group.Members = members
+		}
+	}
+
+	return group, err
 }
 
 func (s *GroupsService) CreateGroup(ctx context.Context, object map[string]interface{}) (*model.Group, error) {

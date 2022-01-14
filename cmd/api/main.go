@@ -26,6 +26,7 @@ func NewServer(
 	reportsService *service.ReportsService,
 	groupsService *service.GroupsService,
 	areasService *service.AreasService,
+	devicesApi *api.DevicesApi,
 	reportsApi *api.ReportsApi,
 ) *Server {
 	return &Server{
@@ -35,6 +36,7 @@ func NewServer(
 		reportsService: reportsService,
 		groupsService: groupsService,
 		areasService: areasService,
+		devicesApi: devicesApi,
 		reportsApi: reportsApi}
 }
 
@@ -45,6 +47,7 @@ type Server struct {
 	reportsService *service.ReportsService
 	groupsService *service.GroupsService
 	areasService *service.AreasService
+	devicesApi *api.DevicesApi
 	reportsApi *api.ReportsApi
 }
 
@@ -90,7 +93,26 @@ func (s *Server) Index(w http.ResponseWriter, r *http.Request){
 	fmt.Fprintf(w, "<strong>Groups</strong><br /><br />")
 
 	for _, group := range groups {
-		fmt.Fprintf(w, "%s -- <button onClick=\"on(%d)\">Toggle on</button>  -- <button onClick=\"off(%d)\">Toggle off</button><br />", group.FriendlyName, group.Id, group.Id)
+		fmt.Fprintf(w, "%s", group.FriendlyName)
+
+		if len(group.Members) > 0 {
+			fmt.Fprintf(w, " -- <button onClick=\"on(%d)\">Toggle on</button>  -- <button onClick=\"off(%d)\">Toggle off</button><br />", group.Id, group.Id)
+		}
+
+		fmt.Fprintf(w, "<br /><br />")
+
+		if len(group.Members) == 0 {
+			fmt.Fprintf(w, "<em>No devices in group</em><br />")
+		}
+
+		for _, member := range group.Members {
+			log.Println(member)
+			fmt.Fprintf(w, "%s<br />", member.FriendlyName)
+			//TODO Get status
+			// If the something
+		}
+
+		fmt.Fprintf(w, "<br /><br />")
 	}
 
 	fmt.Fprintf(w, "</body></html>")
@@ -253,6 +275,7 @@ func (s *Server) HandleRequests() {
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/", s.Index)
 	router.HandleFunc("/reports", s.reportsApi.ListReports)
+	router.HandleFunc("/devices/state", s.devicesApi.GetState)
 	router.HandleFunc("/graphs", s.GraphReports)
 	router.HandleFunc("/groups", s.ListAllGroups)
 	router.HandleFunc("/groupOn", s.TurnGroupOn)
@@ -275,9 +298,10 @@ func main() {
 	groupsService:= service.NewGroupsService(&repository.PostgresGroupsRepository{Postgres: dbPool})
 	areasService:= service.NewAreasService(&repository.PostgresAreasRepository{Postgres: dbPool})
 
+	devicesApi := api.NewDevicesApi(ctx, client, devicesService)
 	reportsApi := api.NewReportsApi(ctx, reportsService, areasService)
 
-	server:= NewServer(ctx, client, devicesService, reportsService, groupsService, areasService, reportsApi)
+	server:= NewServer(ctx, client, devicesService, reportsService, groupsService, areasService, devicesApi, reportsApi)
 
 	server.HandleRequests()
 }

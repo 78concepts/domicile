@@ -160,6 +160,49 @@ func (s *DevicesService) HandleDeviceMessage(ctx context.Context, msg mqtt.Messa
 	}
 }
 
+func (s *DevicesService) RequestDeviceState(mqttClient *broker.MqttClient, friendlyName string) string {
+
+	result := make(chan string, 1)
+
+	go s.ListenForDeviceState(mqttClient, friendlyName, result)
+
+	value := <-result
+
+	return value
+}
+
+func (s *DevicesService) ListenForDeviceState(mqttClient *broker.MqttClient, friendlyName string, result chan string) {
+
+	if token := mqttClient.Conn.Publish(broker.TopicRoot + "/" + friendlyName + "/get", 0, false, "{\"state\": \"\"}"); token.Wait() && token.Error() != nil {
+		panic(token.Error())
+	}
+
+	if token := mqttClient.Conn.Subscribe(broker.TopicRoot + "/" + friendlyName, 0, func(client mqtt.Client, msg mqtt.Message) {
+
+		var object map[string]interface{}
+		err := json.Unmarshal(msg.Payload(), &object)
+		if err == nil {
+			result <- object["state"].(string)
+		} else {
+			result <- "ERROR"
+		}
+
+		close(result)
+
+		return
+
+	}); token.Wait() && token.Error() != nil {
+		log.Println(token)
+		log.Fatal("HandleDevices: Subscribe error: %s", token.Error())
+
+		close(result)
+
+		return
+	}
+
+	return
+}
+
 func (s *DevicesService) GetDevices(ctx context.Context) ([]model.Device, error) {
 	return s.devicesRepository.GetDevices(ctx)
 }
