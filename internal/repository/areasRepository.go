@@ -33,14 +33,14 @@ func (r *PostgresAreasRepository) GetAreas(ctx context.Context) ([]model.Area, e
 		var row model.Area
 		err = rows.Scan(&row.Id, &row.Uuid, &row.DateCreated, &row.Name)
 		if err != nil {
-			log.Fatal("GetAreas: ", err)
+			log.Fatal("GetAreas:", err)
 			return nil, err
 		}
 
 		objects = append(objects, row)
 	}
 	if err := rows.Err(); err != nil {
-		log.Fatal("GetAreas: ", err)
+		log.Fatal("GetAreas:", err)
 		return nil, err
 	}
 
@@ -56,7 +56,7 @@ func (r *PostgresAreasRepository) GetArea(ctx context.Context, uuid uuid.UUID) (
 	err := row.Scan(&object.Id, &object.Uuid, &object.DateCreated, &object.Name)
 
 	if err != nil {
-		log.Fatal("GetArea: ", err)
+		log.Println("GetArea:", err)
 		return nil, err
 	}
 

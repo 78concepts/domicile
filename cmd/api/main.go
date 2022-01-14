@@ -1,6 +1,7 @@
 package main
 
 import (
+	"78concepts.com/domicile/internal/api"
 	"78concepts.com/domicile/internal/broker"
 	"78concepts.com/domicile/internal/database"
 	"78concepts.com/domicile/internal/model"
@@ -18,8 +19,23 @@ import (
 	"time"
 )
 
-func NewServer(ctx context.Context, client *broker.MqttClient, devicesService *service.DevicesService, reportsService *service.ReportsService, groupsService *service.GroupsService, areasService *service.AreasService) *Server {
-	return &Server{ctx: ctx, client: client, devicesService: devicesService, reportsService: reportsService, groupsService: groupsService, areasService: areasService}
+func NewServer(
+	ctx context.Context,
+	client *broker.MqttClient,
+	devicesService *service.DevicesService,
+	reportsService *service.ReportsService,
+	groupsService *service.GroupsService,
+	areasService *service.AreasService,
+	reportsApi *api.ReportsApi,
+) *Server {
+	return &Server{
+		ctx: ctx,
+		client: client,
+		devicesService: devicesService,
+		reportsService: reportsService,
+		groupsService: groupsService,
+		areasService: areasService,
+		reportsApi: reportsApi}
 }
 
 type Server struct {
@@ -29,6 +45,7 @@ type Server struct {
 	reportsService *service.ReportsService
 	groupsService *service.GroupsService
 	areasService *service.AreasService
+	reportsApi *api.ReportsApi
 }
 
 func (s *Server) Index(w http.ResponseWriter, r *http.Request){
@@ -77,39 +94,6 @@ func (s *Server) Index(w http.ResponseWriter, r *http.Request){
 	}
 
 	fmt.Fprintf(w, "</body></html>")
-}
-
-func (s *Server) ListAllReports(w http.ResponseWriter, r *http.Request) {
-
-	log.Println("Endpoint hit: /reports?area=" + r.URL.Query().Get("area") + "&type=" + r.URL.Query().Get("type"))
-
-	//if !middleware.ValidateRequiredQueryParam(w, r, "group") || !middleware.ValidateValidSetQueryParam(w, r, "type", []string{devices.TemperatureReport, devices.HumidityReport, devices.PressureReport, devices.IlluminanceReport}) {
-	//	return
-	//}
-
-	uuid, _ := uuid.FromString(r.URL.Query().Get("area"))
-	area, err := s.areasService.GetArea(s.ctx, uuid)
-
-	if area == nil || err != nil {
-		//middleware.NotFound(w, "group", r.URL.Query().Get("group"))
-		return
-	}
-
-	var response string
-
-	switch reportType := r.URL.Query().Get("type"); reportType {
-		case "temperature":
-			data, _ := s.reportsService.GetTemperatureReports(s.ctx, area.Id)
-			json, _ := json.Marshal(data)
-			response = string(json)
-		case "humidity":
-			data, _ := s.reportsService.GetHumidityReports(s.ctx, area.Id)
-			json, _ := json.Marshal(data)
-			response = string(json)
-	}
-
-	fmt.Fprintf(w, string(response))
-
 }
 
 func (s *Server) ListAllGroups(w http.ResponseWriter, r *http.Request) {
@@ -264,15 +248,15 @@ func (s *Server) TurnGroupOff(w http.ResponseWriter, r *http.Request) {
 }
 
 
-func handleRequests(server *Server) {
+func (s *Server) HandleRequests() {
 
 	router := mux.NewRouter().StrictSlash(true)
-	router.HandleFunc("/", server.Index)
-	router.HandleFunc("/reports", server.ListAllReports)
-	router.HandleFunc("/graphs", server.GraphReports)
-	router.HandleFunc("/groups", server.ListAllGroups)
-	router.HandleFunc("/groupOn", server.TurnGroupOn)
-	router.HandleFunc("/groupOff", server.TurnGroupOff)
+	router.HandleFunc("/", s.Index)
+	router.HandleFunc("/reports", s.reportsApi.ListReports)
+	router.HandleFunc("/graphs", s.GraphReports)
+	router.HandleFunc("/groups", s.ListAllGroups)
+	router.HandleFunc("/groupOn", s.TurnGroupOn)
+	router.HandleFunc("/groupOff", s.TurnGroupOff)
 
 	log.Fatal(http.ListenAndServe(":8080", router))
 }
@@ -291,8 +275,10 @@ func main() {
 	groupsService:= service.NewGroupsService(&repository.PostgresGroupsRepository{Postgres: dbPool})
 	areasService:= service.NewAreasService(&repository.PostgresAreasRepository{Postgres: dbPool})
 
-	server:= NewServer(ctx, client, devicesService, reportsService, groupsService, areasService)
+	reportsApi := api.NewReportsApi(ctx, reportsService, areasService)
 
-	handleRequests(server)
+	server:= NewServer(ctx, client, devicesService, reportsService, groupsService, areasService, reportsApi)
+
+	server.HandleRequests()
 }
 

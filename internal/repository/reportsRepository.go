@@ -15,6 +15,8 @@ type IReportsRepository interface {
 	CreateIlluminanceReport(ctx context.Context, deviceId string, areaId uint64, date time.Time, value float64, valueLux float64) (*model.IlluminanceReport, error)
 	GetTemperatureReports(ctx context.Context, areaId uint64) ([]model.TemperatureReport, error)
 	GetHumidityReports(ctx context.Context, areaId uint64) ([]model.HumidityReport, error)
+	GetPressureReports(ctx context.Context, areaId uint64) ([]model.PressureReport, error)
+	GetIlluminanceReports(ctx context.Context, areaId uint64) ([]model.IlluminanceReport, error)
 }
 
 type PostgresReportsRepository struct {
@@ -103,20 +105,20 @@ func (r *PostgresReportsRepository) GetTemperatureReports(ctx context.Context, a
 
 	defer rows.Close()
 
-	var objects []model.TemperatureReport
+	objects := make([]model.TemperatureReport, 0)
 
 	for rows.Next() {
 		var row model.TemperatureReport
 		err = rows.Scan(&row.DeviceId, &row.AreaId, &row.Date, &row.Value)
 		if err != nil {
-			log.Fatal("GetTemperatureReports: ", err)
+			log.Fatal("GetTemperatureReports:", err)
 			return nil, err
 		}
 
 		objects = append(objects, row)
 	}
 	if err := rows.Err(); err != nil {
-		log.Fatal("GetTemperatureReports: ", err)
+		log.Fatal("GetTemperatureReports:", err)
 		return nil, err
 	}
 
@@ -133,20 +135,81 @@ func (r *PostgresReportsRepository) GetHumidityReports(ctx context.Context, area
 
 	defer rows.Close()
 
-	var objects []model.HumidityReport
+	objects := make([]model.HumidityReport, 0)
 
 	for rows.Next() {
 		var row model.HumidityReport
 		err = rows.Scan(&row.DeviceId, &row.AreaId, &row.Date, &row.Value)
 		if err != nil {
-			log.Fatal("GetHumidityReports: ", err)
+			log.Fatal("GetHumidityReports:", err)
 			return nil, err
 		}
 
 		objects = append(objects, row)
 	}
 	if err := rows.Err(); err != nil {
-		log.Fatal("GetHumidityReports: ", err)
+		log.Fatal("GetHumidityReports:", err)
+		return nil, err
+	}
+
+	return objects, nil
+}
+
+func (r *PostgresReportsRepository) GetPressureReports(ctx context.Context, areaId uint64) ([]model.PressureReport, error) {
+
+	rows, err := r.Postgres.Query(ctx, "SELECT DEVICE_ID, AREA_ID, DATE, VALUE FROM PRESSURE_REPORTS WHERE AREA_ID=$1 ORDER BY DATE ASC", areaId)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	objects := make([]model.PressureReport, 0)
+
+	for rows.Next() {
+		var row model.PressureReport
+		err = rows.Scan(&row.DeviceId, &row.AreaId, &row.Date, &row.Value)
+		if err != nil {
+			log.Fatal("GetPressureReports:", err)
+			return nil, err
+		}
+
+		objects = append(objects, row)
+	}
+	if err := rows.Err(); err != nil {
+		log.Fatal("GetPressureReports:", err)
+		return nil, err
+	}
+
+	return objects, nil
+}
+
+func (r *PostgresReportsRepository) GetIlluminanceReports(ctx context.Context, areaId uint64) ([]model.IlluminanceReport, error) {
+
+	rows, err := r.Postgres.Query(ctx, "SELECT DEVICE_ID, AREA_ID, DATE, VALUE FROM ILLUMINANCE_REPORTS WHERE AREA_ID=$1 ORDER BY DATE ASC", areaId)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	objects := make([]model.IlluminanceReport, 0)
+
+	for rows.Next() {
+		var row model.IlluminanceReport
+		err = rows.Scan(&row.DeviceId, &row.AreaId, &row.Date, &row.Value)
+		if err != nil {
+			log.Fatal("GetIlluminanceReports:", err)
+			return nil, err
+		}
+
+		objects = append(objects, row)
+	}
+
+	if err := rows.Err(); err != nil {
+		log.Fatal("GetIlluminanceReports:", err)
 		return nil, err
 	}
 

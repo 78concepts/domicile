@@ -48,14 +48,14 @@ func (r *PostgresDevicesRepository) GetDevices(ctx context.Context) (result []mo
 		//TODO
 		err = scanDeviceRows(rows, &row)
 		if err != nil {
-			log.Fatal("GetDevices: ", err)
+			log.Fatal("GetDevices:", err)
 			return nil, err
 		}
 
 		objects = append(objects, row)
 	}
 	if err := rows.Err(); err != nil {
-		log.Fatal("GetDevices: ", err)
+		log.Fatal("GetDevices:", err)
 		return nil, err
 	}
 

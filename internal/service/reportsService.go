@@ -68,3 +68,11 @@ func (s *ReportsService) GetHumidityReports(ctx context.Context, areaId uint64) 
 	return s.reportsRepository.GetHumidityReports(ctx, areaId)
 }
 
+func (s *ReportsService) GetPressureReports(ctx context.Context, areaId uint64) ([]model.PressureReport, error) {
+	return s.reportsRepository.GetPressureReports(ctx, areaId)
+}
+
+func (s *ReportsService) GetIlluminanceReports(ctx context.Context, areaId uint64) ([]model.IlluminanceReport, error) {
+	return s.reportsRepository.GetIlluminanceReports(ctx, areaId)
+}
+

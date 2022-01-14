@@ -153,7 +153,6 @@ func (s *GroupsService) TurnGroupOn(mqttClient *broker.MqttClient, group *model.
 	}
 }
 
-
 func (s *GroupsService) TurnGroupOff(mqttClient *broker.MqttClient, group *model.Group) {
 
 	payload := "{\"state\": \"off\"}"

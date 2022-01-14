@@ -38,14 +38,14 @@ func (r *PostgresGroupsRepository) GetGroups(ctx context.Context) ([]model.Group
 		var row model.Group
 		err = rows.Scan(&row.Id, &row.DateCreated, &row.DateModified, &row.FriendlyName, &row.Active)
 		if err != nil {
-			log.Fatal("GetGroups: ", err)
+			log.Fatal("GetGroups:", err)
 			return nil, err
 		}
 
 		objects = append(objects, row)
 	}
 	if err := rows.Err(); err != nil {
-		log.Fatal("GetGroups: ", err)
+		log.Fatal("GetGroups:", err)
 		return nil, err
 	}
 
@@ -60,7 +60,7 @@ func (r *PostgresGroupsRepository) GetGroup(ctx context.Context, id uint64) (*mo
 
 	err := row.Scan(&object.Id, &object.DateCreated, &object.DateModified, &object.FriendlyName, &object.Active)
 	if err != nil {
-		log.Fatal("GetGroup: ", err)
+		log.Fatal("GetGroup:", err)
 		return nil, err
 	}
 
@@ -126,14 +126,14 @@ func (r *PostgresGroupsRepository) GetGroupMembers(ctx context.Context, id uint6
 		var row model.GroupMember
 		err = rows.Scan(&row.GroupId, &row.IeeeAddress)
 		if err != nil {
-			log.Fatal("GetGroupMembers: ", err)
+			log.Fatal("GetGroupMembers:", err)
 			return nil, err
 		}
 
 		objects = append(objects, row)
 	}
 	if err := rows.Err(); err != nil {
-		log.Fatal("GetGroupMembers: ", err)
+		log.Fatal("GetGroupMembers:", err)
 		return nil, err
 	}
 
