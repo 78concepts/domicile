@@ -13,7 +13,7 @@ type IReportsRepository interface {
 	CreateHumidityReport(ctx context.Context, deviceId string, areaId uint64, date time.Time, value float64) (*model.HumidityReport, error)
 	CreatePressureReport(ctx context.Context, deviceId string, areaId uint64, date time.Time, value float64) (*model.PressureReport, error)
 	CreateIlluminanceReport(ctx context.Context, deviceId string, areaId uint64, date time.Time, value float64, valueLux float64) (*model.IlluminanceReport, error)
-	GetTemperatureReports(ctx context.Context, areaId uint64) ([]model.TemperatureReport, error)
+	GetTemperatureReports(ctx context.Context, areaId uint64, startDate time.Time, endDate time.Time) ([]model.TemperatureReport, error)
 	GetHumidityReports(ctx context.Context, areaId uint64) ([]model.HumidityReport, error)
 	GetPressureReports(ctx context.Context, areaId uint64) ([]model.PressureReport, error)
 	GetIlluminanceReports(ctx context.Context, areaId uint64) ([]model.IlluminanceReport, error)
@@ -95,10 +95,11 @@ func (r *PostgresReportsRepository) CreateIlluminanceReport(ctx context.Context,
 	return &object, nil
 }
 
-func (r *PostgresReportsRepository) GetTemperatureReports(ctx context.Context, areaId uint64) ([]model.TemperatureReport, error) {
+func (r *PostgresReportsRepository) GetTemperatureReports(ctx context.Context, areaId uint64, startDate time.Time, endDate time.Time) ([]model.TemperatureReport, error) {
 
-	rows, err := r.Postgres.Query(ctx, "SELECT DEVICE_ID, AREA_ID, DATE, VALUE FROM TEMPERATURE_REPORTS WHERE AREA_ID=$1 ORDER BY DATE ASC", areaId)
-
+	rows, err := r.Postgres.Query(ctx, "SELECT DEVICE_ID, AREA_ID, DATE, VALUE FROM TEMPERATURE_REPORTS WHERE AREA_ID = $1 AND DATE >= $2 AND DATE <= $3 ORDER BY DATE ASC", areaId, startDate, endDate)
+log.Println(startDate)
+	log.Println(endDate)
 	if err != nil {
 		return nil, err
 	}

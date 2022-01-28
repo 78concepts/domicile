@@ -153,12 +153,16 @@ func (s *Server) GraphReports(w http.ResponseWriter, r *http.Request) {
 	uuid, _ := uuid.FromString(r.URL.Query().Get("area"))
 	area, err := s.areasService.GetArea(s.ctx, uuid)
 
+	loc, err := time.LoadLocation("Australia/Melbourne")
+	now := time.Now().In(loc)
+	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+
 	if area == nil || err != nil {
 		//middleware.NotFound(w, "group", r.URL.Query().Get("group"))
 		return
 	}
 
-	data, _ := s.reportsService.GetTemperatureReports(s.ctx, area.Id)
+	data, _ := s.reportsService.GetTemperatureReports(s.ctx, area.Id, startOfDay.In(time.UTC), now.In(time.UTC))
 
 	var cleanedData []model.TemperatureReport
 	var previousDate time.Time

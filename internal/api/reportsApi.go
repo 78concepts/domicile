@@ -8,6 +8,7 @@ import (
 	"github.com/gofrs/uuid"
 	"log"
 	"net/http"
+	"time"
 )
 
 func NewReportsApi(ctx context.Context, reportsService *service.ReportsService, areasService *service.AreasService) *ReportsApi {
@@ -36,9 +37,18 @@ func (a *ReportsApi) ListReports(w http.ResponseWriter, r *http.Request) {
 
 	var response string
 
+	loc, err := time.LoadLocation("Australia/Melbourne")
+	now := time.Now().In(loc)
+	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+
+	if area == nil || err != nil {
+		//middleware.NotFound(w, "group", r.URL.Query().Get("group"))
+		return
+	}
+
 	switch reportType := r.URL.Query().Get("type"); reportType {
 		case "temperature":
-			data, _ := a.reportsService.GetTemperatureReports(a.ctx, area.Id)
+			data, _ := a.reportsService.GetTemperatureReports(a.ctx, area.Id, startOfDay.In(time.UTC), now.In(time.UTC))
 			json, _ := json.Marshal(data)
 			response = string(json)
 		case "humidity":

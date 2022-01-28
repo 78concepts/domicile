@@ -60,8 +60,8 @@ func (s *ReportsService) CreateIlluminanceReport(ctx context.Context, deviceId s
 	)
 }
 
-func (s *ReportsService) GetTemperatureReports(ctx context.Context, areaId uint64) ([]model.TemperatureReport, error) {
-	return s.reportsRepository.GetTemperatureReports(ctx, areaId)
+func (s *ReportsService) GetTemperatureReports(ctx context.Context, areaId uint64, startDate time.Time, endDate time.Time) ([]model.TemperatureReport, error) {
+	return s.reportsRepository.GetTemperatureReports(ctx, areaId, startDate, endDate)
 }
 
 func (s *ReportsService) GetHumidityReports(ctx context.Context, areaId uint64) ([]model.HumidityReport, error) {
