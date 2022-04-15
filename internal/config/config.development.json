@@ -7,7 +7,7 @@
     "pass": "maE!qdyDAr8umAUCYHBz8YMnhh4deV6G"
   },
   "database": {
-    "connectionString": "postgres://zigbee:kfzNNY42%23ZDYH4TdML@7%3D(YR@192.168.20.18:5432/zigbee?connect_timeout=5",
+    "connectionString": "postgres://zigbee:ZaN!P7tv!7iN4!Nny.KE2RfN!gVLZBx!@192.168.20.18:5432/zigbee?connect_timeout=5",
     "devicesCollection": "devices",
     "groupsCollection" : "groups",
     "temperatureReportsCollection": "temperature_reports",
